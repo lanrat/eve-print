@@ -438,8 +438,10 @@ void auth()
     
 
     //testin loading 1 print
-    struct fp_print_data * fingerL = load_print_from_file("prints/ianL.fp");
-    struct fp_print_data * fingerR = load_print_from_file("prints/ianR.fp");
+    char * f1 = "prints/ianL.fp";
+    char * f2 = "prints/ianR.fp";
+    struct fp_print_data * fingerL = load_print_from_file(f1);
+    struct fp_print_data * fingerR = load_print_from_file(f2);
     if (fingerL == NULL || fingerR == NULL) {
         printf("laod is null\n");
         return;
@@ -447,38 +449,45 @@ void auth()
    
     printf("testing ident\n");
 
-    size_t id;
-    struct fp_print_data * arr[3];
-    arr[0] = fingerL;
-    arr[1] = fingerR;
-    arr[2] = NULL;
-
-    int r = fp_identify_finger(dev,arr,&id);
+    //size_t id;
 
 
-    printf("result: %d\tid: %zu\n",r,id);
+    users.length = 2;
+    
+    users.prints = malloc(sizeof(struct fp_print_data *)*(users.length+1));
+    users.prints[0] = fingerL;
+    users.prints[1] = fingerR;
+    users.prints[2] = NULL;
+    
+    users.names = malloc(sizeof(char*)*users.length);
+    users.names[0] = f1;
+    users.names[1] = f2;
 
-        switch (r) {
-            case FP_VERIFY_NO_MATCH:
-                printf("NO MATCH!\n");
-                break;
-            case FP_VERIFY_MATCH:
-                printf("MATCH!\n");
-                break;
-            case FP_VERIFY_RETRY:
-                printf("Scan didn't quite work. Please try again.\n");
-                break;
-            case FP_VERIFY_RETRY_TOO_SHORT:
-                printf("Swipe was too short, please try again.\n");
-                break;
-            case FP_VERIFY_RETRY_CENTER_FINGER:
-                printf("Please center your finger on the sensor and try again.\n");
-                break;
-            case FP_VERIFY_RETRY_REMOVE_FINGER:
-                printf("Please remove finger from the sensor and try again.\n");
-                break;
-        }
+    /*int r = fp_identify_finger(dev,users.prints,&id);
+    switch (r) {
+        case FP_VERIFY_NO_MATCH:
+            printf("NO MATCH!\n");
+            break;
+        case FP_VERIFY_MATCH:
+            printf("MATCH!\n");
+            break;
+        case FP_VERIFY_RETRY:
+            printf("Scan didn't quite work. Please try again.\n");
+            break;
+        case FP_VERIFY_RETRY_TOO_SHORT:
+            printf("Swipe was too short, please try again.\n");
+            break;
+        case FP_VERIFY_RETRY_CENTER_FINGER:
+            printf("Please center your finger on the sensor and try again.\n");
+            break;
+        case FP_VERIFY_RETRY_REMOVE_FINGER:
+            printf("Please remove finger from the sensor and try again.\n");
+            break;
+    }
 
+    if (r == FP_VERIFY_MATCH) {
+        printf("Matched: %s\n",users.names[id]);
+    }*/
 
 
     /*
@@ -492,17 +501,20 @@ void auth()
     }
 
     printf("Loaded %zu prints\n",users.length);
+    */
 
     if (fp_dev_supports_identification(dev) == 0){
         fprintf(stderr,"Device does not suport identification!\n");
         return;
     }
+    do
+    {
+        int result = identify(dev, &users);
 
-    int result = identify(dev, &users);
-
-    if (result > -1){
-        printf("USER: %s\n",users.names[result]);
-    }*/
+        if (result > -1){
+            printf("USER: %s\n",users.names[result]);
+        }
+    }while(1);
 }
 
 
