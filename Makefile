@@ -11,7 +11,7 @@ CXXFLAGS= -g -Wall -Wextra
 LDFLAGS=-lfprint
 
 #change this
-default: test
+default:test
 
 test:
 	$(CC) -o $@ $(CXXFLAGS) $(LDFLAGS) $@.c

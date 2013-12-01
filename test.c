@@ -5,15 +5,44 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
 #include <libfprint/fprint.h>
 
+
 const size_t NAME_SIZE = 50;
-const char* PATH = ".";
+const char* PATH = "prints";
 const char* EXT = "fp";
 #define false 0
 #define true 1
 typedef int bool;
 
+
+bool create_dir(const char * path)
+{
+    int e;
+    struct stat sb;
+
+    e = stat(path, &sb);
+    if (e == 0)
+    {
+        if (sb.st_mode & S_IFDIR) {
+            return true;
+        }else{
+            fprintf(stderr,"Can't create dir, %s exists and is not a dir.\n",path);
+            return false;
+        }
+    }else{
+        if (errno == ENOENT) {
+            e = mkdir(path, S_IRWXU);
+            if (e == 0) {
+                return true;
+            }
+        }
+    }
+    fprintf(stderr,"Error creating dir: %s\n",path);
+    return false;
+}
 
 bool file_exists(const char * filename)
 {
@@ -77,6 +106,44 @@ struct fp_dev* connect()
     return dev;
 }
 
+//scan a print and verify that it matches the provided print
+bool verify(struct fp_dev* dev, struct fp_print_data *data)
+{
+    int r;
+    do {
+        sleep(1);
+        printf("\nScan your finger now.\n");
+        r = fp_verify_finger(dev, data);
+        if (r < 0) {
+            printf("verification failed with error %d :(\n", r);
+            return false;
+        }
+        switch (r) {
+        case FP_VERIFY_NO_MATCH:
+            printf("NO MATCH!\n");
+            return false;
+        case FP_VERIFY_MATCH:
+            printf("MATCH!\n");
+            return true;
+        case FP_VERIFY_RETRY:
+            printf("Scan didn't quite work. Please try again.\n");
+            break;
+        case FP_VERIFY_RETRY_TOO_SHORT:
+            printf("Swipe was too short, please try again.\n");
+            break;
+        case FP_VERIFY_RETRY_CENTER_FINGER:
+            printf("Please center your finger on the sensor and try again.\n");
+            break;
+        case FP_VERIFY_RETRY_REMOVE_FINGER:
+            printf("Please remove finger from the sensor and try again.\n");
+            break;
+        }
+    } while (1);
+
+    return true;
+}
+
+
 
 void enroll()
 {
@@ -87,7 +154,7 @@ void enroll()
     bool fileAvaible = false;
     size_t name_end;
     struct fp_print_data *enrolled_print = NULL;
-    struct fp_dev* dev = connect();
+    struct fp_dev* dev = connect(); //TODO move this to main
     
     printf("You are about to add a new fingerprint to the database. Doing so "
             "will require a restart of the verification program.\n");
@@ -103,6 +170,10 @@ void enroll()
             return;
         }
         name_end = strnlen(name,NAME_SIZE);
+        if (name_end < 3) {
+            printf("Name must be at least 2 chars\n");
+            continue;
+        }
         if (name_end > 1)
         {
             name[name_end-1] = '\0'; //repalce newline with NULL
@@ -120,6 +191,7 @@ void enroll()
         "complete the process.\n", fp_dev_get_nr_enroll_stages(dev));
 
     do {
+        //TODO make this and verify portion into a function
         sleep(1);
         printf("\nScan your finger now.\n");
         r = fp_enroll_finger(dev, &enrolled_print);
@@ -159,6 +231,12 @@ void enroll()
         return;
     }
 
+    printf("Verify that the read was good\n");
+    if (!verify(dev,enrolled_print)) {
+        //TODO free things
+        return;
+    }
+
 
     //get a buffer containing the raw data to save to disk
     unsigned char *buf;
@@ -169,7 +247,7 @@ void enroll()
         fprintf(stderr,"Unable to get data buffer for print");
     }
 
-    //SAVE enrolled_print
+    //save enrolled_print
     outFile = fopen(filepath,"wb");
     if (outFile == NULL)
     {
@@ -177,7 +255,6 @@ void enroll()
         return;
     }
     if (fwrite(buf, len, 1, outFile) != 1)
-    //if (fwrite(enrolled_print, sizeof(*enrolled_print), 1, outFile) != 1)
     {
         fprintf(stderr,"Error while writing to %s.\n",filepath);
         //TODO close handle and free memory
@@ -191,13 +268,11 @@ void enroll()
     fclose(outFile);
 }
 
-void verify()
-{
-}
 
 int main(int argc, char** argv)
 {
     int c;
+    create_dir(PATH);
     if (argc > 1)
     {
         while ((c = getopt (argc, argv, "eh")) != -1)
@@ -220,7 +295,7 @@ int main(int argc, char** argv)
             }
         }
     }else{
-        verify();
+        //verify();
     }
     return 0;
 }
