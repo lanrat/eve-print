@@ -390,13 +390,6 @@ int identify(struct fp_dev * dev, struct user_prints * users)
     size_t id;
     int r;
 
-
-    //TODO testing
-    /*int i;
-    for (i=0; i< users->length; i++){
-        printf("DEBUG: i=%d name=%s print=%uz\n",i,users->names[i],users->prints[i]);
-    }*/
-
     do {
         sleep(1);
         printf("\nScan your finger now.\n");
@@ -426,7 +419,7 @@ int identify(struct fp_dev * dev, struct user_prints * users)
                 printf("Please remove finger from the sensor and try again.\n");
                 break;
         }
-    } while (1);
+    } while (true);
     return -1;
 }
 
@@ -435,53 +428,60 @@ int identify(struct fp_dev * dev, struct user_prints * users)
 void auth()
 {
     struct fp_dev* dev = connect(); //TODO move this to main
- 
+    int result;
+
     if (fp_dev_supports_identification(dev) == 0){
         fprintf(stderr,"Device does not suport identification!\n");
         return;
     }
-   
 
-    //testin loading 2 prints
+
+    //testing loading 2 prints
     char * f1 = "prints/ianL.fp";
     char * f2 = "prints/ianR.fp";
+    char * f3 = "prints/ian0.fp";
+    char * f4 = "prints/ian9.fp";
     struct fp_print_data * fingerL = load_print_from_file(f1);
     struct fp_print_data * fingerR = load_print_from_file(f2);
-    if (fingerL == NULL || fingerR == NULL) {
+    struct fp_print_data * fingera = load_print_from_file(f3);
+    struct fp_print_data * fingerb = load_print_from_file(f4);
+    if (fingerL == NULL || fingerR == NULL || fingera == NULL || fingerb == NULL) {
         printf("load is null\n");
         return;
     }
-   
-    users.length = 2;
+
+
+    //load all prints from PATH
+    //this function is broken!
+    //loadPrints(&users);
+    //TODO free
+
+
+    users.length = 4;
     users.prints = malloc(sizeof(struct fp_print_data *)*(users.length+1));
     users.prints[0] = fingerL;
     users.prints[1] = fingerR;
-    users.prints[2] = NULL;
+    users.prints[2] = fingera;
+    users.prints[3] = fingerb;
+    users.prints[users.length] = NULL;
     users.names = malloc(sizeof(char*)*users.length);
     users.names[0] = f1;
     users.names[1] = f2;
-
-    /*
-    //load all prints from PATH
-    loadPrints(&users);
-    //TODO free
-    */
+    users.names[2] = f3;
+    users.names[3] = f4;
 
 
     if (users.length < 1) {
         fprintf(stderr,"No prints loaded!\n");
         return;
     }
-
     printf("Loaded %zu prints\n",users.length);
 
     do
     {
-        int result = identify(dev, &users);
-
+        result = identify(dev, &users);
         if (result > -1){
             printf("USER: %s\n",users.names[result]);
-
             //TODO Do something!
         }
     }while(true);
