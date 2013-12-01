@@ -65,7 +65,7 @@ struct fp_dscv_dev *discover_device(struct fp_dscv_dev **discovered_devs)
     struct fp_driver *drv;
     if (!ddev)
         return NULL;
-    
+
     drv = fp_dscv_dev_get_driver(ddev);
     printf("Found device claimed by %s driver\n", fp_driver_get_full_name(drv));
     return ddev;
@@ -123,24 +123,24 @@ bool verify(struct fp_dev* dev, struct fp_print_data *data)
             return false;
         }
         switch (r) {
-        case FP_VERIFY_NO_MATCH:
-            printf("NO MATCH!\n");
-            return false;
-        case FP_VERIFY_MATCH:
-            printf("MATCH!\n");
-            return true;
-        case FP_VERIFY_RETRY:
-            printf("Scan didn't quite work. Please try again.\n");
-            break;
-        case FP_VERIFY_RETRY_TOO_SHORT:
-            printf("Swipe was too short, please try again.\n");
-            break;
-        case FP_VERIFY_RETRY_CENTER_FINGER:
-            printf("Please center your finger on the sensor and try again.\n");
-            break;
-        case FP_VERIFY_RETRY_REMOVE_FINGER:
-            printf("Please remove finger from the sensor and try again.\n");
-            break;
+            case FP_VERIFY_NO_MATCH:
+                printf("NO MATCH!\n");
+                return false;
+            case FP_VERIFY_MATCH:
+                printf("MATCH!\n");
+                return true;
+            case FP_VERIFY_RETRY:
+                printf("Scan didn't quite work. Please try again.\n");
+                break;
+            case FP_VERIFY_RETRY_TOO_SHORT:
+                printf("Swipe was too short, please try again.\n");
+                break;
+            case FP_VERIFY_RETRY_CENTER_FINGER:
+                printf("Please center your finger on the sensor and try again.\n");
+                break;
+            case FP_VERIFY_RETRY_REMOVE_FINGER:
+                printf("Please remove finger from the sensor and try again.\n");
+                break;
         }
     } while (1);
 
@@ -159,7 +159,7 @@ void enroll()
     size_t name_end;
     struct fp_print_data *enrolled_print = NULL;
     struct fp_dev* dev = connect(); //TODO move this to main
-    
+
     printf("You are about to add a new fingerprint to the database. Doing so "
             "will require a restart of the verification program.\n");
 
@@ -192,7 +192,7 @@ void enroll()
     }
 
     printf("You will need to successfully scan your finger %d times to "
-        "complete the process.\n", fp_dev_get_nr_enroll_stages(dev));
+            "complete the process.\n", fp_dev_get_nr_enroll_stages(dev));
 
     do {
         //TODO make this and verify portion into a function
@@ -204,29 +204,29 @@ void enroll()
             return;
         }
         switch (r) {
-        case FP_ENROLL_COMPLETE:
-            printf("Enroll complete!\n");
-            break;
-        case FP_ENROLL_FAIL:
-            printf("Enroll failed, something wen't wrong :(\n");
-            return;
-        case FP_ENROLL_PASS:
-            printf("Enroll stage passed. Yay!\n");
-            break;
-        case FP_ENROLL_RETRY:
-            printf("Didn't quite catch that. Please try again.\n");
-            break;
-        case FP_ENROLL_RETRY_TOO_SHORT:
-            printf("Your swipe was too short, please try again.\n");
-            break;
-        case FP_ENROLL_RETRY_CENTER_FINGER:
-            printf("Didn't catch that, please center your finger on the "
-                "sensor and try again.\n");
-            break;
-        case FP_ENROLL_RETRY_REMOVE_FINGER:
-            printf("Scan failed, please remove your finger and then try "
-                "again.\n");
-            break;
+            case FP_ENROLL_COMPLETE:
+                printf("Enroll complete!\n");
+                break;
+            case FP_ENROLL_FAIL:
+                printf("Enroll failed, something wen't wrong :(\n");
+                return;
+            case FP_ENROLL_PASS:
+                printf("Enroll stage passed. Yay!\n");
+                break;
+            case FP_ENROLL_RETRY:
+                printf("Didn't quite catch that. Please try again.\n");
+                break;
+            case FP_ENROLL_RETRY_TOO_SHORT:
+                printf("Your swipe was too short, please try again.\n");
+                break;
+            case FP_ENROLL_RETRY_CENTER_FINGER:
+                printf("Didn't catch that, please center your finger on the "
+                        "sensor and try again.\n");
+                break;
+            case FP_ENROLL_RETRY_REMOVE_FINGER:
+                printf("Scan failed, please remove your finger and then try "
+                        "again.\n");
+                break;
         }
     } while (r != FP_ENROLL_COMPLETE);
 
@@ -245,7 +245,7 @@ void enroll()
     //get a buffer containing the raw data to save to disk
     unsigned char *buf;
     size_t len;
-    
+
     len = fp_print_data_get_data(enrolled_print, &buf);
     if (!len) {
         fprintf(stderr,"Unable to get data buffer for print");
@@ -273,29 +273,53 @@ void enroll()
 }
 
 //TOOD move to header file
-struct user_fp {
-    char name[NAME_SIZE];
-    struct fp_print_data * print;
-};
-struct user_data {
-    struct user_fp * data;
+struct user_prints {
+    struct fp_print_data ** prints;
+    char ** names;
     size_t length;
 };
+struct user_prints users;
 
-struct user_data users;
 
-void loadPrints(struct user_data * users)
+struct fp_print_data * load_print_from_file(const char * path)
+{
+    FILE * fh;
+    size_t fSize;
+    static unsigned char buffer[FILE_BUFFER_SIZE];
+    
+    fh = fopen(path,"rb");
+    if (!fh) {
+        fprintf(stderr,"Error reading: %s\n",path);
+        return NULL;
+    }
+
+    //clear buffer
+    memset(&buffer,0,FILE_BUFFER_SIZE);
+
+    fSize = fread(&buffer,1,FILE_BUFFER_SIZE,fh);
+    fclose(fh);
+
+    if (fSize < 1){
+        fprintf(stderr,"Empty File: %s\n",path);
+        return NULL;
+    }
+
+    return fp_print_data_from_data(&(buffer[0]),fSize);
+}
+
+
+void loadPrints(struct user_prints * users)
 {
     DIR * d;
     struct dirent *dir;
-    struct user_fp * users_temp;
-    unsigned char buffer[FILE_BUFFER_SIZE];
+    struct fp_print_data * print;
+    struct fp_print_data ** prints_temp;
+    char ** names_temp;
     char filepath[BUFSIZ];
-    size_t fSize;
-    FILE * fh;
     size_t fLen;
 
-    users->data = NULL;
+    users->names = NULL;
+    users->prints = NULL;
     users->length = 0;
 
     d = opendir(PATH);
@@ -310,65 +334,175 @@ void loadPrints(struct user_data * users)
             if ( strncmp( &(dir->d_name[fLen-2]), EXT,2)) {
                 continue;
             }
-
             //read file
             (void)snprintf(filepath, BUFSIZ, "%s/%s", PATH, dir->d_name);
-            fh = fopen(filepath,"rb");
-            if (!fh) {
-                printf("Error reading: %s\n",dir->d_name);
-                continue;
-            }
-            //clear buffer
-            memset(&buffer,0,FILE_BUFFER_SIZE);
-            
-            fSize = fread(&buffer,1,FILE_BUFFER_SIZE,fh);
-            fclose(fh);
+            print = load_print_from_file(filepath);
 
-            if (fSize < 1){
-                printf("Empty File: %s\n",dir->d_name);
+            if (print == NULL) {
+                fprintf(stderr,"Unable to parse %s to print\n",dir->d_name);
                 continue;
             }
 
             //resize array
-            users_temp = users->data;
-            users->data = realloc(users_temp,(users->length+1)*sizeof(struct user_fp));
-            
+            names_temp = users->names;
+            prints_temp = users->prints;
+            users->names = realloc(names_temp,(users->length+1)*NAME_SIZE);
+            users->prints = realloc(prints_temp,(users->length+1)*sizeof(struct fp_print_data *));
+
             //copy name
-            strncpy(&(users->data[users->length].name[0]),dir->d_name,NAME_SIZE);
+            //printf("DEBUG: copying [%s] len=%d\n",dir->d_name,NAME_SIZE);
+            strncpy(&(users->names[users->length][0]),dir->d_name,NAME_SIZE);
+            //printf("DEBUG: name copied: [%s]\n",users->names[users->length]);
 
             //convert and load print data
-            users->data[users->length].print = fp_print_data_from_data(&(buffer[0]),fSize);
+            users->prints[users->length] = print;
+            if (users->prints[users->length] == NULL) {
+                fprintf(stderr,"%s could not be parsed to a valid print!\n",dir->d_name);
+                continue;
+            }
+            //printf("DEBUG: ptr to print data: %u\n",users->prints[users->length]);
             users->length++;
+
+            //printf("DEBUG: name copied2: [%s]\n",users->names[users->length-1]);
+
+
         }
         closedir(d);
+        size_t i;
+        for (i=0; i< users->length; i++){
+            printf("DEBUG: i=%zu name=%s print=%p\n",i,users->names[i],users->prints[i]);
+        }
+
+        //null terminate prints
+        prints_temp = users->prints;
+        users->prints = realloc(prints_temp,(users->length+1)*sizeof(struct fp_print_data *));
+        users->prints[users->length] = NULL;
+        /*for (i=0; i< users->length; i++){
+            printf("DEBUG: i=%d name=%s print=%uz\n",i,users->names[i],users->prints[i]);
+        }*/
+
+
     }
 }
 
-int identify(struct user_data * users)
-    int i;
-    int ret = -1;
+int identify(struct fp_dev * dev, struct user_prints * users)
+{
+    size_t id;
+    int r;
 
-    //get a print
 
+    //TODO testing
+    /*int i;
+    for (i=0; i< users->length; i++){
+        printf("DEBUG: i=%d name=%s print=%uz\n",i,users->names[i],users->prints[i]);
+    }*/
 
-    //search for a match
-    for (i=0; i<users.length; i++)
-    {
-        
-    }
-
-    return ret;
+    do {
+        sleep(1);
+        printf("\nScan your finger now.\n");
+        r = fp_identify_finger(dev, users->prints,&id);
+        if (r < 0) {
+            printf("verification failed with error %d :(\n", r);
+            return -1;
+        }
+        switch (r) {
+            case FP_VERIFY_NO_MATCH:
+                printf("NO MATCH!\n");
+                return -1;
+                break;
+            case FP_VERIFY_MATCH:
+                printf("MATCH!\n");
+                return id;
+            case FP_VERIFY_RETRY:
+                printf("Scan didn't quite work. Please try again.\n");
+                break;
+            case FP_VERIFY_RETRY_TOO_SHORT:
+                printf("Swipe was too short, please try again.\n");
+                break;
+            case FP_VERIFY_RETRY_CENTER_FINGER:
+                printf("Please center your finger on the sensor and try again.\n");
+                break;
+            case FP_VERIFY_RETRY_REMOVE_FINGER:
+                printf("Please remove finger from the sensor and try again.\n");
+                break;
+        }
+    } while (1);
+    return -1;
 }
+
+
 
 void auth()
 {
     struct fp_dev* dev = connect(); //TODO move this to main
+    
 
+    //testin loading 1 print
+    struct fp_print_data * fingerL = load_print_from_file("prints/ianL.fp");
+    struct fp_print_data * fingerR = load_print_from_file("prints/ianR.fp");
+    if (fingerL == NULL || fingerR == NULL) {
+        printf("laod is null\n");
+        return;
+    }
+   
+    printf("testing ident\n");
+
+    size_t id;
+    struct fp_print_data * arr[3];
+    arr[0] = fingerL;
+    arr[1] = fingerR;
+    arr[2] = NULL;
+
+    int r = fp_identify_finger(dev,arr,&id);
+
+
+    printf("result: %d\tid: %zu\n",r,id);
+
+        switch (r) {
+            case FP_VERIFY_NO_MATCH:
+                printf("NO MATCH!\n");
+                break;
+            case FP_VERIFY_MATCH:
+                printf("MATCH!\n");
+                break;
+            case FP_VERIFY_RETRY:
+                printf("Scan didn't quite work. Please try again.\n");
+                break;
+            case FP_VERIFY_RETRY_TOO_SHORT:
+                printf("Swipe was too short, please try again.\n");
+                break;
+            case FP_VERIFY_RETRY_CENTER_FINGER:
+                printf("Please center your finger on the sensor and try again.\n");
+                break;
+            case FP_VERIFY_RETRY_REMOVE_FINGER:
+                printf("Please remove finger from the sensor and try again.\n");
+                break;
+        }
+
+
+
+    /*
     //load all prints from PATH
     loadPrints(&users);
     //TODO free
+    //
+    if (users.length < 1) {
+        fprintf(stderr,"No prints loaded!\n");
+        return;
+    }
 
     printf("Loaded %zu prints\n",users.length);
+
+    if (fp_dev_supports_identification(dev) == 0){
+        fprintf(stderr,"Device does not suport identification!\n");
+        return;
+    }
+
+    int result = identify(dev, &users);
+
+    if (result > -1){
+        printf("USER: %s\n",users.names[result]);
+    }*/
 }
 
 
@@ -382,19 +516,19 @@ int main(int argc, char** argv)
         {
             switch (c)
             {
-            case 'e':
-                enroll();
-                return 0;
-                //break;
-            case '?':
-                printf("Unrecognized option -%c\n",optopt);
-            case 'h':
-                printf("Usage:\n");
-                printf("%s -h\tDisplay this message\n",argv[0]);
-                printf("%s -e\tEnroll a new print\n",argv[0]);
-                printf("%s \t\tScan for prints\n",argv[0]);
-                return 0;
-                //break;
+                case 'e':
+                    enroll();
+                    return 0;
+                    //break;
+                case '?':
+                    printf("Unrecognized option -%c\n",optopt);
+                case 'h':
+                    printf("Usage:\n");
+                    printf("%s -h\tDisplay this message\n",argv[0]);
+                    printf("%s -e\tEnroll a new print\n",argv[0]);
+                    printf("%s \t\tScan for prints\n",argv[0]);
+                    return 0;
+                    //break;
             }
         }
     }else{
