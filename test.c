@@ -7,16 +7,20 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <dirent.h>
 #include <libfprint/fprint.h>
 
 
-const size_t NAME_SIZE = 50;
-const char* PATH = "prints";
-const char* EXT = "fp";
+#define NAME_SIZE 50
+#define FILE_BUFFER_SIZE 4096
+#define PATH "prints"
+#define EXT "fp"
 #define false 0
 #define true 1
 typedef int bool;
 
+
+//TODO add logging
 
 bool create_dir(const char * path)
 {
@@ -268,6 +272,105 @@ void enroll()
     fclose(outFile);
 }
 
+//TOOD move to header file
+struct user_fp {
+    char name[NAME_SIZE];
+    struct fp_print_data * print;
+};
+struct user_data {
+    struct user_fp * data;
+    size_t length;
+};
+
+struct user_data users;
+
+void loadPrints(struct user_data * users)
+{
+    DIR * d;
+    struct dirent *dir;
+    struct user_fp * users_temp;
+    unsigned char buffer[FILE_BUFFER_SIZE];
+    char filepath[BUFSIZ];
+    size_t fSize;
+    FILE * fh;
+    size_t fLen;
+
+    users->data = NULL;
+    users->length = 0;
+
+    d = opendir(PATH);
+    if (d) {
+        while ((dir = readdir(d)) != NULL)
+        {
+            fLen = strnlen(dir->d_name,NAME_SIZE);
+            if ( fLen < 4) {
+                continue;
+            }
+            //test extension
+            if ( strncmp( &(dir->d_name[fLen-2]), EXT,2)) {
+                continue;
+            }
+
+            //read file
+            (void)snprintf(filepath, BUFSIZ, "%s/%s", PATH, dir->d_name);
+            fh = fopen(filepath,"rb");
+            if (!fh) {
+                printf("Error reading: %s\n",dir->d_name);
+                continue;
+            }
+            //clear buffer
+            memset(&buffer,0,FILE_BUFFER_SIZE);
+            
+            fSize = fread(&buffer,1,FILE_BUFFER_SIZE,fh);
+            fclose(fh);
+
+            if (fSize < 1){
+                printf("Empty File: %s\n",dir->d_name);
+                continue;
+            }
+
+            //resize array
+            users_temp = users->data;
+            users->data = realloc(users_temp,(users->length+1)*sizeof(struct user_fp));
+            
+            //copy name
+            strncpy(&(users->data[users->length].name[0]),dir->d_name,NAME_SIZE);
+
+            //convert and load print data
+            users->data[users->length].print = fp_print_data_from_data(&(buffer[0]),fSize);
+            users->length++;
+        }
+        closedir(d);
+    }
+}
+
+int identify(struct user_data * users)
+    int i;
+    int ret = -1;
+
+    //get a print
+
+
+    //search for a match
+    for (i=0; i<users.length; i++)
+    {
+        
+    }
+
+    return ret;
+}
+
+void auth()
+{
+    struct fp_dev* dev = connect(); //TODO move this to main
+
+    //load all prints from PATH
+    loadPrints(&users);
+    //TODO free
+
+    printf("Loaded %zu prints\n",users.length);
+}
+
 
 int main(int argc, char** argv)
 {
@@ -295,7 +398,7 @@ int main(int argc, char** argv)
             }
         }
     }else{
-        //verify();
+        auth();
     }
     return 0;
 }
