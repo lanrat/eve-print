@@ -28,10 +28,10 @@ void loop()
     while (Serial.available())
     {
       byte a = Serial.read();
-      if (a == 103) //g (good)
+      if (a == 'g') //good
       {
         youShallPass();
-      }else if (a == 98) //b (bad)
+      }else if (a == 'b') //bad
       {
         youShallNotPass();
       }      
