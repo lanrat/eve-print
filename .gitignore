@@ -1,4 +1,4 @@
-libfprint/
-prints/
-test
-
+server/libfprint/
+server/prints/
+server/test
+*.pycr
