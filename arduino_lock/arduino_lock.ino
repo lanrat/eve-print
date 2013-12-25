@@ -6,12 +6,14 @@ int serialSpeed = 9600;
 int servoPin = 11;
 int redLedPin = 13;
 int greenLedPin = 12;
-Servo servoMain;
+
+
+Servo servo;
 
 void setup()
 {
   Serial.begin(serialSpeed);
-  servoMain.attach(servoPin);
+  servo.attach(servoPin);
   pinMode(redLedPin, OUTPUT);
   pinMode(greenLedPin, OUTPUT);
   lock();
@@ -34,11 +36,14 @@ void loop()
 
 void youShallPass()
 {
+  servo.attach(servoPin);
   unlock();
   digitalWrite(greenLedPin,HIGH);
   delay(5000);
   digitalWrite(greenLedPin,LOW);
   lock();
+  delay(500); //enough time for the lock to close
+  servo.detach();
 }
 
 void youShallNotPass()
@@ -51,10 +56,10 @@ void youShallNotPass()
 
 void lock()
 {
-  servoMain.write(lockPosition);
+  servo.write(lockPosition);
 }
 void unlock()
 {
-  servoMain.write(unlockPosition);
+  servo.write(unlockPosition);
 }
 
