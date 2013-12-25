@@ -12,11 +12,15 @@ Servo servo;
 
 void setup()
 {
-  Serial.begin(serialSpeed);
-  servo.attach(servoPin);
   pinMode(redLedPin, OUTPUT);
   pinMode(greenLedPin, OUTPUT);
+  digitalWrite(redLedPin,HIGH);
+  Serial.begin(serialSpeed);
+  servo.attach(servoPin);
   lock();
+  delay(500);
+  servo.detach();
+  digitalWrite(redLedPin,LOW);
 }
 
 void loop()
