@@ -1,15 +1,19 @@
 #include <Servo.h>
 
+// settings
 int lockPosition = 0;
 int unlockPosition = 115;
 int serialSpeed = 9600;
+
+// pins
 int servoPin = 11;
 int redLedPin = 13;
 int greenLedPin = 12;
 
-
+// global servo
 Servo servo;
 
+// runs on start, takes a second to run
 void setup()
 {
   pinMode(redLedPin, OUTPUT);
@@ -23,6 +27,7 @@ void setup()
   digitalWrite(redLedPin,LOW);
 }
 
+// runs always after start
 void loop()
 {
     while (Serial.available())
@@ -38,6 +43,7 @@ void loop()
     }
 }
 
+// good auth
 void youShallPass()
 {
   servo.attach(servoPin);
@@ -50,6 +56,7 @@ void youShallPass()
   servo.detach();
 }
 
+// bad auth
 void youShallNotPass()
 {
   digitalWrite(redLedPin,HIGH);
@@ -58,12 +65,14 @@ void youShallNotPass()
 }
 
 
+// move the servo to the locked position
 void lock()
 {
   servo.write(lockPosition);
 }
+
+// move the servo to the unlocked position
 void unlock()
 {
   servo.write(unlockPosition);
 }
-
