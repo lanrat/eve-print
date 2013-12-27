@@ -7,8 +7,8 @@ int serialSpeed = 9600;
 
 // pins
 int servoPin = 11;
-int redLedPin = 13;
 int greenLedPin = 12;
+int redLedPin = 13;
 
 // global servo
 Servo servo;
@@ -19,25 +19,31 @@ void setup()
   pinMode(redLedPin, OUTPUT);
   pinMode(greenLedPin, OUTPUT);
   digitalWrite(redLedPin,HIGH);
+  digitalWrite(greenLedPin,HIGH);
   Serial.begin(serialSpeed);
   servo.attach(servoPin);
   lock();
   delay(500);
   servo.detach();
   digitalWrite(redLedPin,LOW);
+  digitalWrite(greenLedPin,LOW);
 }
 
 // runs always after start
 void loop()
 {
+    byte a;
     while (Serial.available())
     {
-      byte a = Serial.read();
+      Serial.write('R');
+      a = Serial.read();
       if (a == 'g') //good
       {
+        Serial.write('G');
         youShallPass();
       }else if (a == 'b') //bad
       {
+        Serial.write('B');
         youShallNotPass();
       }      
     }
