@@ -10,9 +10,7 @@
 #include <dirent.h>
 #include <libfprint/fprint.h>
 
-#include "arduino-serial-lib/arduino-serial-lib.h"
-
-
+#include "arduino-lock.h"
 
 #define NAME_SIZE 50
 #define FILE_BUFFER_SIZE 4096
@@ -21,38 +19,6 @@
 #define false 0
 #define true 1
 typedef int bool;
-
-    int rc;
-    char quiet=0;
-    const int buf_max = 256;
-    char serialport[256];
-    int fd = -1;
-    int baudrate = 9600;  // default
-
-void error(char* msg)
-{
-    fprintf(stderr,"%s\n",msg);
-}
-
-void arduino_send(char m)
-{
-    int n = m;
-    serialport_flush(fd);
-    rc = serialport_writebyte(fd, (uint8_t)n);
-    if(rc==-1) error("error writing");
-    serialport_flush(fd);
-    usleep(n * 1000 );
-}
-void pass()
-{
-    arduino_send('g');
-}
-void nopass()
-{
-    arduino_send('b');
-}
-
-
 
 //TODO add logging
 
@@ -453,7 +419,6 @@ void auth()
     }
 
     //load all prints from PATH
-    //this function is broken!
     loadPrints(&users);
     //TODO free
 
@@ -464,22 +429,21 @@ void auth()
     printf("Loaded %zu prints\n",users.length);
 
 
-    fd = serialport_init("/dev/ttyACM0", baudrate);
-    if( fd==-1 ) error("couldn't open port");
-    if(!quiet) printf("opened port %s\n",serialport);
-    serialport_flush(fd);
+    arduino_connect("/dev/ttyACM0");
 
     do
     {
         result = identify(dev, &users);
         if (result > -1){
             printf("USER: %s\n",users.names[result]);
-            //TODO Do something!
-            pass();
+
+            youShallPass();
         }else{
-            nopass();
+            youShallNotPass();
         }
     }while(true);
+
+    arduino_close();
 }
 
 
@@ -495,8 +459,7 @@ int main(int argc, char** argv)
             {
                 case 'e':
                     enroll();
-                    return 0;
-                    //break;
+                    break;
                 case '?':
                     printf("Unrecognized option -%c\n",optopt);
                 case 'h':
@@ -504,8 +467,7 @@ int main(int argc, char** argv)
                     printf("%s -h\tDisplay this message\n",argv[0]);
                     printf("%s -e\tEnroll a new print\n",argv[0]);
                     printf("%s \t\tScan for prints\n",argv[0]);
-                    return 0;
-                    //break;
+                    break;
             }
         }
     }else{
