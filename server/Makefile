@@ -13,11 +13,11 @@ LDFLAGS=-lfprint arduino-serial-lib/arduino-serial-lib.c
 #change this
 default: test
 
-arduino-lock:
+arduino_lock:
 	$(CC) -c $(CXXFLAGS) $(LDFLAGS) $@.c
 
-test: arduino-lock
-	$(CC) -o $@ $(CXXFLAGS) arduino-lock.o $(LDFLAGS) $@.c
+test: arduino_lock
+	$(CC) -o $@ $(CXXFLAGS) arduino_lock.o $(LDFLAGS) $@.c
 
 clean:
 	rm -rf *.o test

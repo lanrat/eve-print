@@ -10,7 +10,7 @@
 #include <dirent.h>
 #include <libfprint/fprint.h>
 
-#include "arduino-lock.h"
+#include "arduino_lock.h"
 
 #define NAME_SIZE 50
 #define FILE_BUFFER_SIZE 4096

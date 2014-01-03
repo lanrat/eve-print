@@ -1,4 +1,4 @@
-#include "arduino-lock.h"
+#include "arduino_lock.h"
 
 int fd = -1;
 char* port = NULL;
