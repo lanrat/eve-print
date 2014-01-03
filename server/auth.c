@@ -2,8 +2,7 @@
  * Built from code provided in libfprint/examples
  */
 #include <stdio.h>
-#include <unistd.h> //for usleep
-#include <string.h>
+#include <unistd.h> //for sleep
 
 #include "arduino_lock.h"
 #include "finger_auth.h"
