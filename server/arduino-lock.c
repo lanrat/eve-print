@@ -11,6 +11,7 @@ void arduino_connect(char* Lport)
     {
         fprintf(stderr,"Couldn't open port %s\n",port);
     }
+    sleep(1);
 }
 
 
@@ -29,14 +30,14 @@ void arduino_send_char(char c)
 
 
 //unlock the door
-void youShallPass()
+void arduino_unlock()
 {
     arduino_send_char('g');
 }
 
 
 //blink the red LED
-void youShallNotPass()
+void arduino_blink()
 {
     arduino_send_char('b');
 }

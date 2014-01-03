@@ -3,7 +3,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <unistd.h> //for usleep
 #include <string.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -407,8 +407,19 @@ int identify(struct fp_dev * dev, struct user_prints * users)
 }
 
 
+void youShallPass()
+{
+    arduino_unlock();
+}
 
-void auth()
+void youShallNotPass()
+{
+    arduino_blink();
+}
+
+
+
+void auth(char* arduino_port)
 {
     struct fp_dev* dev = connect(); //TODO move this to main
     int result;
@@ -429,7 +440,7 @@ void auth()
     printf("Loaded %zu prints\n",users.length);
 
 
-    arduino_connect("/dev/ttyACM0");
+    arduino_connect(arduino_port);
 
     do
     {
@@ -446,32 +457,73 @@ void auth()
     arduino_close();
 }
 
+void printUsage(char* self)
+{
+    printf("Usage:\n");
+    printf("%s -h\t\t\tDisplay this message\n",self);
+    printf("%s -e\t\t\tEnroll a new print\n",self);
+    printf("%s -p ArduinoPort\t\tScan for prints\n",self);
+    printf("%s -p ArduinoPort -g\tUnlock the Door\n",self);
+    printf("%s -p ArduinoPort -b\tBlink the LED\n",self);
+    printf("Order of arguments matter!\n");
+}
 
+void testUnlock(char* port)
+{
+    arduino_connect(port);
+    sleep(1);
+    arduino_unlock();
+    sleep(5);
+    arduino_close();
+}
+
+void testBlink(char* port)
+{
+    arduino_connect(port);
+    sleep(1);
+    arduino_blink();
+    sleep(1);
+    arduino_close();
+}
 int main(int argc, char** argv)
 {
     int c;
+    char * arduino_port = NULL;
     create_dir(PATH);
     if (argc > 1)
     {
-        while ((c = getopt (argc, argv, "eh")) != -1)
+        while ((c = getopt(argc, argv, "ehp:gb")) != -1)
         {
             switch (c)
             {
                 case 'e':
                     enroll();
+                    return 0;
+                case 'p':
+                    arduino_port = optarg;
+                    break;
+                case 'g':
+                    testUnlock(arduino_port);
+                    return 0;
+                    break;
+                case 'b':
+                    testBlink(arduino_port);
+                    return 0;
                     break;
                 case '?':
                     printf("Unrecognized option -%c\n",optopt);
                 case 'h':
-                    printf("Usage:\n");
-                    printf("%s -h\tDisplay this message\n",argv[0]);
-                    printf("%s -e\tEnroll a new print\n",argv[0]);
-                    printf("%s \t\tScan for prints\n",argv[0]);
-                    break;
+                    printUsage(argv[0]);
+                    return 0;
             }
         }
+        if (arduino_port != NULL) {
+            auth(arduino_port);
+        }else {
+            fprintf(stderr,"Missing port\n");
+        }
     }else{
-        auth();
+        printUsage(argv[0]);
     }
     return 0;
 }

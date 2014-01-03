@@ -10,7 +10,7 @@
 void arduino_connect(char* port);
 void arduino_close();
 
-void youShallPass();
-void youShallNotPass();
+void arduino_unlock();;
+void arduino_blink();
 
 #endif
