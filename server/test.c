@@ -10,6 +10,9 @@
 #include <dirent.h>
 #include <libfprint/fprint.h>
 
+#include "arduino-serial-lib/arduino-serial-lib.h"
+
+
 
 #define NAME_SIZE 50
 #define FILE_BUFFER_SIZE 4096
@@ -18,6 +21,37 @@
 #define false 0
 #define true 1
 typedef int bool;
+
+    int rc;
+    char quiet=0;
+    const int buf_max = 256;
+    char serialport[256];
+    int fd = -1;
+    int baudrate = 9600;  // default
+
+void error(char* msg)
+{
+    fprintf(stderr,"%s\n",msg);
+}
+
+void arduino_send(char m)
+{
+    int n = m;
+    serialport_flush(fd);
+    rc = serialport_writebyte(fd, (uint8_t)n);
+    if(rc==-1) error("error writing");
+    serialport_flush(fd);
+    usleep(n * 1000 );
+}
+void pass()
+{
+    arduino_send('g');
+}
+void nopass()
+{
+    arduino_send('b');
+}
+
 
 
 //TODO add logging
@@ -173,6 +207,7 @@ void enroll()
         if ( fgets(name, NAME_SIZE, stdin) == NULL  ){
             return;
         }
+        name[NAME_SIZE-1] = '\0'; //NULL terminate
         name_end = strnlen(name,NAME_SIZE);
         if (name_end < 3) {
             printf("Name must be at least 2 chars\n");
@@ -326,7 +361,7 @@ void loadPrints(struct user_prints * users)
     if (d) {
         while ((dir = readdir(d)) != NULL)
         {
-            fLen = strnlen(dir->d_name,NAME_SIZE);
+            fLen = strnlen(dir->d_name,NAME_SIZE+3);
             if ( fLen < 4) {
                 continue;
             }
@@ -346,42 +381,24 @@ void loadPrints(struct user_prints * users)
             //resize array
             names_temp = users->names;
             prints_temp = users->prints;
-            users->names = realloc(names_temp,(users->length+1)*NAME_SIZE);
+            users->names = realloc(names_temp,(users->length+1)*sizeof(char*));
             users->prints = realloc(prints_temp,(users->length+1)*sizeof(struct fp_print_data *));
 
-            //copy name
-            //printf("DEBUG: copying [%s] len=%d\n",dir->d_name,NAME_SIZE);
-            strncpy(&(users->names[users->length][0]),dir->d_name,NAME_SIZE);
-            //printf("DEBUG: name copied: [%s]\n",users->names[users->length]);
+            //move name
+            users->names[users->length] = malloc(NAME_SIZE*sizeof(char));
+            strncpy(users->names[users->length],dir->d_name,fLen-3);
+            users->names[users->length][fLen-3] = '\0'; //ensure null terminated string
 
             //convert and load print data
             users->prints[users->length] = print;
-            if (users->prints[users->length] == NULL) {
-                fprintf(stderr,"%s could not be parsed to a valid print!\n",dir->d_name);
-                continue;
-            }
-            //printf("DEBUG: ptr to print data: %u\n",users->prints[users->length]);
             users->length++;
-
-            //printf("DEBUG: name copied2: [%s]\n",users->names[users->length-1]);
-
-
         }
         closedir(d);
-        size_t i;
-        for (i=0; i< users->length; i++){
-            printf("DEBUG: i=%zu name=%s print=%p\n",i,users->names[i],users->prints[i]);
-        }
 
         //null terminate prints
         prints_temp = users->prints;
         users->prints = realloc(prints_temp,(users->length+1)*sizeof(struct fp_print_data *));
         users->prints[users->length] = NULL;
-        /*for (i=0; i< users->length; i++){
-            printf("DEBUG: i=%d name=%s print=%uz\n",i,users->names[i],users->prints[i]);
-        }*/
-
-
     }
 }
 
@@ -435,41 +452,10 @@ void auth()
         return;
     }
 
-
-    //testing loading 2 prints
-    char * f1 = "prints/ianL.fp";
-    char * f2 = "prints/ianR.fp";
-    char * f3 = "prints/ian0.fp";
-    char * f4 = "prints/ian9.fp";
-    struct fp_print_data * fingerL = load_print_from_file(f1);
-    struct fp_print_data * fingerR = load_print_from_file(f2);
-    struct fp_print_data * fingera = load_print_from_file(f3);
-    struct fp_print_data * fingerb = load_print_from_file(f4);
-    if (fingerL == NULL || fingerR == NULL || fingera == NULL || fingerb == NULL) {
-        printf("load is null\n");
-        return;
-    }
-
-
     //load all prints from PATH
     //this function is broken!
-    //loadPrints(&users);
+    loadPrints(&users);
     //TODO free
-
-
-    users.length = 4;
-    users.prints = malloc(sizeof(struct fp_print_data *)*(users.length+1));
-    users.prints[0] = fingerL;
-    users.prints[1] = fingerR;
-    users.prints[2] = fingera;
-    users.prints[3] = fingerb;
-    users.prints[users.length] = NULL;
-    users.names = malloc(sizeof(char*)*users.length);
-    users.names[0] = f1;
-    users.names[1] = f2;
-    users.names[2] = f3;
-    users.names[3] = f4;
-
 
     if (users.length < 1) {
         fprintf(stderr,"No prints loaded!\n");
@@ -477,12 +463,21 @@ void auth()
     }
     printf("Loaded %zu prints\n",users.length);
 
+
+    fd = serialport_init("/dev/ttyACM0", baudrate);
+    if( fd==-1 ) error("couldn't open port");
+    if(!quiet) printf("opened port %s\n",serialport);
+    serialport_flush(fd);
+
     do
     {
         result = identify(dev, &users);
         if (result > -1){
             printf("USER: %s\n",users.names[result]);
             //TODO Do something!
+            pass();
+        }else{
+            nopass();
         }
     }while(true);
 }

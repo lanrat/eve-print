@@ -8,7 +8,7 @@ CC=gcc
 CXXFLAGS= -g -Wall -Wextra 
 
 #libs to include
-LDFLAGS=-lfprint
+LDFLAGS=-lfprint arduino-serial-lib/arduino-serial-lib.c
 
 #change this
 default:test
