@@ -16,8 +16,11 @@ default: test
 arduino_lock:
 	$(CC) -c $(CXXFLAGS) $(LDFLAGS) $@.c
 
-test: arduino_lock
-	$(CC) -o $@ $(CXXFLAGS) arduino_lock.o $(LDFLAGS) $@.c
+finger_auth:
+	$(CC) -c $(CXXFLAGS) $(LDFLAGS) $@.c
+
+test: arduino_lock finger_auth
+	$(CC) -o $@ $(CXXFLAGS) arduino_lock.o finger_auth.o $(LDFLAGS) $@.c
 
 clean:
 	rm -rf *.o test
