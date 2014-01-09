@@ -9,16 +9,19 @@
 #include "finger_auth.h"
 
 
-void enroll()
+FILE* logstream;;
+struct fp_dev* dev;
+struct user_prints users;
+
+void enrollFinger()
 {
-    int r;
     char name[NAME_SIZE];
     char filepath[BUFSIZ];
     FILE* outFile = NULL;
     bool fileAvaible = false;
     size_t name_end;
     struct fp_print_data *enrolled_print = NULL;
-    struct fp_dev* dev = connect();
+    dev = fp_connect();
 
     printf("You are about to add a new fingerprint to the database. Doing so "
             "will require a restart of the verification program.\n");
@@ -52,53 +55,21 @@ void enroll()
         }
     }
 
+    
     printf("You will need to successfully scan your finger %d times to "
-            "complete the process.\n", fp_dev_get_nr_enroll_stages(dev));
+            "complete the process.\n", fp_dev_get_nr_enroll_stages(dev)*2);
+    
 
-    do {
-        //TODO make this and verify portion into a function
-        sleep(1);
-        printf("\nScan your finger now.\n");
-        r = fp_enroll_finger(dev, &enrolled_print);
-        if (r < 0) {
-            printf("Enroll failed with error %d\n", r);
-            return;
-        }
-        switch (r) {
-            case FP_ENROLL_COMPLETE:
-                printf("Enroll complete!\n");
-                break;
-            case FP_ENROLL_FAIL:
-                printf("Enroll failed, something wen't wrong :(\n");
-                return;
-            case FP_ENROLL_PASS:
-                printf("Enroll stage passed. Yay!\n");
-                break;
-            case FP_ENROLL_RETRY:
-                printf("Didn't quite catch that. Please try again.\n");
-                break;
-            case FP_ENROLL_RETRY_TOO_SHORT:
-                printf("Your swipe was too short, please try again.\n");
-                break;
-            case FP_ENROLL_RETRY_CENTER_FINGER:
-                printf("Didn't catch that, please center your finger on the "
-                        "sensor and try again.\n");
-                break;
-            case FP_ENROLL_RETRY_REMOVE_FINGER:
-                printf("Scan failed, please remove your finger and then try "
-                        "again.\n");
-                break;
-        }
-    } while (r != FP_ENROLL_COMPLETE);
-
-    if (!enrolled_print) {
-        fprintf(stderr, "Enroll complete but no print?\n");
-        return;
+    if (!enroll(dev,&enrolled_print)) {
+        fp_print_data_free(enrolled_print);
+        fp_disconnect(dev);
+        return; 
     }
 
     printf("Verify that the read was good\n");
     if (!verify(dev,enrolled_print)) {
-        //TODO free things
+        fp_print_data_free(enrolled_print);
+        fp_disconnect(dev);
         return;
     }
 
@@ -111,6 +82,9 @@ void enroll()
         fprintf(stderr,"Unable to get data buffer for print");
     }
 
+    fp_print_data_free(enrolled_print);
+    fp_disconnect(dev);
+    
     //save enrolled_print
     outFile = fopen(filepath,"wb");
     if (outFile == NULL)
@@ -121,14 +95,13 @@ void enroll()
     if (fwrite(buf, len, 1, outFile) != 1)
     {
         fprintf(stderr,"Error while writing to %s.\n",filepath);
-        //TODO close handle and free memory
+        free(buf);
+        fclose(outFile);
         return;
     }
 
     printf("Enrollment completed!\n\n");
     free(buf);
-    fp_print_data_free(enrolled_print);
-    fp_dev_close(dev);
     fclose(outFile);
 }
 
@@ -144,9 +117,16 @@ void youShallNotPass()
     arduino_blink();
 }
 
+void auth_exit()
+{
+    freePrints(&users);
+    arduino_close();
+    fp_disconnect(dev);
+}
+
 void auth(char* arduino_port)
 {
-    struct fp_dev* dev = connect();
+    dev = fp_connect();
     int result;
 
     if (fp_dev_supports_identification(dev) == 0){
@@ -156,14 +136,11 @@ void auth(char* arduino_port)
 
     //load all prints from PATH
     loadPrints(&users);
-    //TODO free
 
     if (users.length < 1) {
         fprintf(stderr,"No prints loaded!\n");
         return;
     }
-    printf("Loaded %zu prints\n",users.length);
-
 
     arduino_connect(arduino_port);
 
@@ -171,12 +148,12 @@ void auth(char* arduino_port)
     time_t now;
     char tBuffer[25];
     struct tm* tm_info;
-
     time(&now);
     tm_info = localtime(&now);
     strftime(tBuffer, 25, "%d/%b/%Y:%H:%M:%S", tm_info);
 
-    printf("[%s] Starting Auth\n",tBuffer);
+    fprintf(logstream,"[%s] Starting Auth with %zu prints\n",tBuffer,users.length);
+    fflush(logstream);
 
     do
     {
@@ -187,15 +164,16 @@ void auth(char* arduino_port)
         strftime(tBuffer, 25, "%d/%b/%Y:%H:%M:%S", tm_info);
 
         if (result > -1){
-            printf("[%s] Valid Print: %s\n",tBuffer,users.names[result]);
+            fprintf(logstream,"[%s] Valid Print: %s\n",tBuffer,users.names[result]);
             youShallPass();
         }else{
-            printf("[%s] Invalid Print\n",tBuffer);
+            fprintf(logstream,"[%s] Invalid Print\n",tBuffer);
             youShallNotPass();
         }
+        fflush(logstream);
     }while(true);
 
-    arduino_close();
+    auth_exit();
 }
 
 void printUsage(char* self)
@@ -233,6 +211,7 @@ int main(int argc, char** argv)
 {
     int c;
     char * arduino_port = NULL;
+    logstream = stdout;
     create_dir(PATH);
     if (argc > 1)
     {
@@ -241,7 +220,7 @@ int main(int argc, char** argv)
             switch (c)
             {
                 case 'e':
-                    enroll();
+                    enrollFinger();
                     return 0;
                 case 'p':
                     arduino_port = optarg;

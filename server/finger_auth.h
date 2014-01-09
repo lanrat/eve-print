@@ -22,14 +22,17 @@ struct user_prints {
     struct fp_print_data ** prints;
     char ** names;
     size_t length;
-} users;
+};
 
 struct fp_dscv_dev *discover_device(struct fp_dscv_dev **discovered_devs);
-struct fp_dev* connect();
+struct fp_dev* fp_connect();
+void fp_disconnect(struct fp_dev *dev);
 struct fp_print_data * load_print_from_file(const char * path);
 void loadPrints(struct user_prints * users);
+bool enroll(struct fp_dev *dev, struct fp_print_data **enrolled_print);
 bool verify(struct fp_dev* dev, struct fp_print_data *data);
 int identify(struct fp_dev * dev, struct user_prints * users);
+void freePrints(struct user_prints *data);
 
 bool create_dir(const char * path);
 bool file_exists(const char * filename);

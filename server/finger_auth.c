@@ -40,9 +40,21 @@ bool file_exists(const char * filename)
 }
 
 
+void freePrints(struct user_prints *data)
+{
+    size_t i;
+    for(i=0; i<data->length; i++)
+    {
+        free(data->names[i]);
+        fp_print_data_free(data->prints[i]);
+    }
+    free(data->prints);
+    free(data->names);
+}
+
 struct fp_dscv_dev *discover_device(struct fp_dscv_dev **discovered_devs)
 {
-    //TODO ad verbose option
+    //TODO add verbose option
     struct fp_dscv_dev *ddev = discovered_devs[0];
     //struct fp_driver *drv;
     if (!ddev)
@@ -54,7 +66,7 @@ struct fp_dscv_dev *discover_device(struct fp_dscv_dev **discovered_devs)
 }
 
 
-struct fp_dev* connect()
+struct fp_dev* fp_connect()
 {
     int r = 1;
     struct fp_dscv_dev *ddev;
@@ -92,6 +104,12 @@ struct fp_dev* connect()
     return dev;
 }
 
+
+void fp_disconnect(struct fp_dev *dev)
+{
+    fp_dev_close(dev);
+    fp_exit();
+}
 
 struct fp_print_data * load_print_from_file(const char * path)
 {
@@ -180,6 +198,50 @@ void loadPrints(struct user_prints * users)
 }
 
 
+bool enroll(struct fp_dev *dev, struct fp_print_data **enrolled_print)
+{
+    int r;
+    do {
+        sleep(1);
+        printf("\nScan your finger now.\n");
+        r = fp_enroll_finger(dev, enrolled_print);
+        if (r < 0) {
+            printf("Enroll failed with error %d\n", r);
+            return false;
+        }
+        switch (r) {
+            case FP_ENROLL_COMPLETE:
+                break;
+            case FP_ENROLL_FAIL:
+                printf("Enroll failed, something wen't wrong :(\n");
+                return false;
+            case FP_ENROLL_PASS:
+                printf("Enroll stage passed. Yay!\n");
+                break;
+            case FP_ENROLL_RETRY:
+                printf("Didn't quite catch that. Please try again.\n");
+                break;
+            case FP_ENROLL_RETRY_TOO_SHORT:
+                printf("Your swipe was too short, please try again.\n");
+                break;
+            case FP_ENROLL_RETRY_CENTER_FINGER:
+                printf("Didn't catch that, please center your finger on the "
+                        "sensor and try again.\n");
+                break;
+            case FP_ENROLL_RETRY_REMOVE_FINGER:
+                printf("Scan failed, please remove your finger and then try "
+                        "again.\n");
+                break;
+        }
+    } while (r != FP_ENROLL_COMPLETE);
+
+    if (!enrolled_print) {
+        fprintf(stderr, "Enroll complete but no print?\n");
+        return false;
+    }
+    return true;
+}
+
 //scan a print and verify that it matches the provided print
 bool verify(struct fp_dev* dev, struct fp_print_data *data)
 {
@@ -254,5 +316,4 @@ int identify(struct fp_dev * dev, struct user_prints * users)
     } while (true);
     return -1;
 }
-
 
