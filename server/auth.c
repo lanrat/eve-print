@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h> //for sleep
 #include <time.h>
+#include <signal.h>
 
 #include "arduino_lock.h"
 #include "finger_auth.h"
@@ -121,7 +122,13 @@ void auth_exit()
 {
     freePrints(&users);
     arduino_close();
-    fp_disconnect(dev);
+    //fp_disconnect(dev); //errors for some reason
+}
+
+void auth_signal(int signum)
+{
+    auth_exit();
+    exit(signum);
 }
 
 void auth(char* arduino_port)
@@ -154,6 +161,9 @@ void auth(char* arduino_port)
 
     fprintf(logstream,"[%s] Starting Auth with %zu prints\n",tBuffer,users.length);
     fflush(logstream);
+
+    signal(SIGINT, auth_signal); //Ctrl-C
+    signal(SIGTERM, auth_signal); //kill command
 
     do
     {
