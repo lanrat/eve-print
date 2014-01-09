@@ -9,9 +9,11 @@
 # Description:       A simple utility to control the eve lock
 ### END INIT INFO
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+#DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-SCRIPT="$DIR/auth -p /dev/serial/by-id/*Arduino*"
+DIR="/home/eve-lock/"
+
+SCRIPT="$DIR/eve-print/server/auth -p /dev/serial/by-id/*Arduino*"
 RUNAS=eve-lock #must be a member of dialout and plugdev
 
 PIDFILE=$DIR/eve-lock.pid
