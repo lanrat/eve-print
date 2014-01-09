@@ -3,6 +3,7 @@
  */
 #include <stdio.h>
 #include <unistd.h> //for sleep
+#include <time.h>
 
 #include "arduino_lock.h"
 #include "finger_auth.h"
@@ -17,7 +18,7 @@ void enroll()
     bool fileAvaible = false;
     size_t name_end;
     struct fp_print_data *enrolled_print = NULL;
-    struct fp_dev* dev = connect(); //TODO move this to main
+    struct fp_dev* dev = connect();
 
     printf("You are about to add a new fingerprint to the database. Doing so "
             "will require a restart of the verification program.\n");
@@ -166,14 +167,30 @@ void auth(char* arduino_port)
 
     arduino_connect(arduino_port);
 
+    //time code
+    time_t now;
+    char tBuffer[25];
+    struct tm* tm_info;
+
+    time(&now);
+    tm_info = localtime(&now);
+    strftime(tBuffer, 25, "%d/%b/%Y:%H:%M:%S", tm_info);
+
+    printf("[%s] Starting Auth\n",tBuffer);
+
     do
     {
         result = identify(dev, &users);
-        if (result > -1){
-            printf("USER: %s\n",users.names[result]);
+        
+        time(&now);
+        tm_info = localtime(&now);
+        strftime(tBuffer, 25, "%d/%b/%Y:%H:%M:%S", tm_info);
 
+        if (result > -1){
+            printf("[%s] Valid Print: %s\n",tBuffer,users.names[result]);
             youShallPass();
         }else{
+            printf("[%s] Invalid Print\n",tBuffer);
             youShallNotPass();
         }
     }while(true);

@@ -42,13 +42,14 @@ bool file_exists(const char * filename)
 
 struct fp_dscv_dev *discover_device(struct fp_dscv_dev **discovered_devs)
 {
+    //TODO ad verbose option
     struct fp_dscv_dev *ddev = discovered_devs[0];
-    struct fp_driver *drv;
+    //struct fp_driver *drv;
     if (!ddev)
         return NULL;
 
-    drv = fp_dscv_dev_get_driver(ddev);
-    printf("Found device claimed by %s driver\n", fp_driver_get_full_name(drv));
+    //drv = fp_dscv_dev_get_driver(ddev);
+    //printf("Found device claimed by %s driver\n", fp_driver_get_full_name(drv));
     return ddev;
 }
 
@@ -223,7 +224,7 @@ int identify(struct fp_dev * dev, struct user_prints * users)
 
     do {
         sleep(1);
-        printf("\nScan your finger now.\n");
+        //printf("\nScan your finger now.\n");
         r = fp_identify_finger(dev, users->prints,&id);
         if (r < 0) {
             printf("verification failed with error %d :(\n", r);
@@ -231,11 +232,11 @@ int identify(struct fp_dev * dev, struct user_prints * users)
         }
         switch (r) {
             case FP_VERIFY_NO_MATCH:
-                printf("NO MATCH!\n");
+                //printf("NO MATCH!\n");
                 return -1;
                 break;
             case FP_VERIFY_MATCH:
-                printf("MATCH!\n");
+                //printf("MATCH!\n");
                 return id;
             case FP_VERIFY_RETRY:
                 printf("Scan didn't quite work. Please try again.\n");
