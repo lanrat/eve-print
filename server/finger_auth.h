@@ -10,13 +10,16 @@
 #include <libfprint/fprint.h>
 #include <errno.h>
 
-#define NAME_SIZE 50
-#define FILE_BUFFER_SIZE 4096
-#define PATH "prints"
-#define EXT "fp"
+#define PRINT_NAME_SIZE 50
+#define PRINT_FILE_BUFFER_SIZE 4096
+#define PRINT_DEFAULT_PATH "~/prints/"
+#define PRINT_EXT "fp"
+
 #define false 0
 #define true 1
 typedef int bool;
+
+//TODO use fp_handle_events_timeout or fp_handle_events to detect device replug
 
 struct user_prints {
     struct fp_print_data ** prints;
@@ -28,7 +31,7 @@ struct fp_dscv_dev *discover_device(struct fp_dscv_dev **discovered_devs);
 struct fp_dev* fp_connect();
 void fp_disconnect(struct fp_dev *dev);
 struct fp_print_data * load_print_from_file(const char * path);
-void loadPrints(struct user_prints * users);
+void loadPrints(char *path, struct user_prints *users);
 bool enroll(struct fp_dev *dev, struct fp_print_data **enrolled_print);
 bool verify(struct fp_dev* dev, struct fp_print_data *data);
 int identify(struct fp_dev * dev, struct user_prints * users);

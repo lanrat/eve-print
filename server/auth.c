@@ -1,22 +1,20 @@
-/*
- * Built from code provided in libfprint/examples
- */
 #include <stdio.h>
-#include <unistd.h> //for sleep
-#include <time.h>
+#include <unistd.h> //for getopt
+#include <time.h> //for sleep
 #include <signal.h>
 
 #include "arduino_lock.h"
 #include "finger_auth.h"
 
+#define LOG_TIMESTAMP "%d/%b/%Y %H:%M:%S"
 
-FILE* logstream;;
+FILE *logstream;
 struct fp_dev* dev;
 struct user_prints users;
 
-void enrollFinger()
+void enrollFinger(char* prints_path)
 {
-    char name[NAME_SIZE];
+    char name[PRINT_NAME_SIZE];
     char filepath[BUFSIZ];
     FILE* outFile = NULL;
     bool fileAvaible = false;
@@ -34,11 +32,11 @@ void enrollFinger()
     while (!fileAvaible)
     {
         printf("Name: ");
-        if ( fgets(name, NAME_SIZE, stdin) == NULL  ){
+        if ( fgets(name, PRINT_NAME_SIZE, stdin) == NULL  ){
             return;
         }
-        name[NAME_SIZE-1] = '\0'; //NULL terminate
-        name_end = strnlen(name,NAME_SIZE);
+        name[PRINT_NAME_SIZE-1] = '\0'; //NULL terminate
+        name_end = strnlen(name,PRINT_NAME_SIZE);
         if (name_end < 3) {
             printf("Name must be at least 2 chars\n");
             continue;
@@ -47,7 +45,7 @@ void enrollFinger()
         {
             name[name_end-1] = '\0'; //repalce newline with NULL
         }
-        (void)snprintf(filepath, BUFSIZ, "%s/%s.%s", PATH, name, EXT);
+        (void)snprintf(filepath, BUFSIZ, "%s/%s.%s", prints_path, name, PRINT_EXT);
         if (file_exists(filepath))
         {
             printf("%s already exists.\n",name);
@@ -56,22 +54,18 @@ void enrollFinger()
         }
     }
 
-    
-    printf("You will need to successfully scan your finger %d times to "
-            "complete the process.\n", fp_dev_get_nr_enroll_stages(dev)*2);
-    
+    bool verified = false;
+    while (!verified)
+    {
+        printf("You will need to successfully scan your finger %d times to "
+                "complete the process.\n", fp_dev_get_nr_enroll_stages(dev)*2);
 
-    if (!enroll(dev,&enrolled_print)) {
-        fp_print_data_free(enrolled_print);
-        fp_disconnect(dev);
-        return; 
-    }
+        if (!enroll(dev,&enrolled_print)) {
+            continue;
+        }
 
-    printf("Verify that the read was good\n");
-    if (!verify(dev,enrolled_print)) {
-        fp_print_data_free(enrolled_print);
-        fp_disconnect(dev);
-        return;
+        printf("Verify that the read was good\n");
+        verified = verify(dev,enrolled_print);
     }
 
     //get a buffer containing the raw data to save to disk
@@ -127,11 +121,21 @@ void auth_exit()
 
 void auth_signal(int signum)
 {
+    time_t now;
+    char tBuffer[25];
+    struct tm* tm_info;
+    time(&now);
+    tm_info = localtime(&now);
+    strftime(tBuffer, 25, LOG_TIMESTAMP, tm_info);
+
+    fprintf(logstream,"[%s] Exiting with signal %d\n",tBuffer,signum);
+    fflush(logstream);
+
     auth_exit();
     exit(signum);
 }
 
-void auth(char* arduino_port)
+void auth(char* prints_path, char* arduino_port)
 {
     dev = fp_connect();
     int result;
@@ -141,8 +145,8 @@ void auth(char* arduino_port)
         return;
     }
 
-    //load all prints from PATH
-    loadPrints(&users);
+    //load all prints from prints_path
+    loadPrints(prints_path, &users);
 
     if (users.length < 1) {
         fprintf(stderr,"No prints loaded!\n");
@@ -157,7 +161,7 @@ void auth(char* arduino_port)
     struct tm* tm_info;
     time(&now);
     tm_info = localtime(&now);
-    strftime(tBuffer, 25, "%d/%b/%Y:%H:%M:%S", tm_info);
+    strftime(tBuffer, 25, LOG_TIMESTAMP, tm_info);
 
     fprintf(logstream,"[%s] Starting Auth with %zu prints\n",tBuffer,users.length);
     fflush(logstream);
@@ -186,18 +190,6 @@ void auth(char* arduino_port)
     auth_exit();
 }
 
-void printUsage(char* self)
-{
-    printf("Usage:\n");
-    printf("%s -h\t\t\tDisplay this message\n",self);
-    printf("%s -e\t\t\tEnroll a new print\n",self);
-    printf("%s -p ArduinoPort\t\tScan for prints\n",self);
-    printf("%s -p ArduinoPort -g\tUnlock the Door\n",self);
-    printf("%s -p ArduinoPort -b\tBlink the LED\n",self);
-    printf("Order of arguments matter!\n");
-}
-
-
 void testUnlock(char* port)
 {
     arduino_connect(port);
@@ -216,48 +208,72 @@ void testBlink(char* port)
     arduino_close();
 }
 
+void printUsage(char* me)
+{
+    printf("Usage: %s [options] operand\n",me);
+    printf("Operands:\n");
+    printf("\tenroll\tScans and saves a new finger\n");
+    printf("\tauth\tRuns the authentication for the lock\n");
+    printf("\tunlock\tUnlocks the door\n");
+    printf("\tblink\tBlinks the red LED\n");
+    printf("Options:\n");
+    printf("\t-h\tDisplay this message\n");
+    printf("\t-f\tprints_folder\tDefault: %s\n",PRINT_DEFAULT_PATH);
+    printf("\t-p\tarduino_port\tDefault: Automatic\n");
+}
+
+
 
 int main(int argc, char** argv)
 {
     int c;
-    char * arduino_port = NULL;
+    char* arduino_port = NULL;
     logstream = stdout;
-    create_dir(PATH);
-    if (argc > 1)
+    char *prints_path = PRINT_DEFAULT_PATH;
+
+    //parse args
+    while ((c = getopt(argc, argv, "hf:p:")) != -1)
     {
-        while ((c = getopt(argc, argv, "ehp:gb")) != -1)
+        switch (c)
         {
-            switch (c)
-            {
-                case 'e':
-                    enrollFinger();
-                    return 0;
-                case 'p':
-                    arduino_port = optarg;
-                    break;
-                case 'g':
-                    testUnlock(arduino_port);
-                    return 0;
-                    break;
-                case 'b':
-                    testBlink(arduino_port);
-                    return 0;
-                    break;
-                case '?':
-                    printf("Unrecognized option -%c\n",optopt);
-                case 'h':
-                    printUsage(argv[0]);
-                    return 0;
-            }
+            case 'p':
+                arduino_port = optarg;
+                break;
+            case 'f':
+                prints_path = optarg;
+                break;
+            case '?':
+            case 'h':
+                printUsage(argv[0]);
+                return 0;
         }
-        if (arduino_port != NULL) {
-            auth(arduino_port);
-        }else {
-            fprintf(stderr,"Missing port\n");
-        }
+    }
+
+    if (optind >= argc) {
+        printUsage(argv[0]);
+        return 0;
+    }
+
+    if (arduino_port == NULL) {
+        //autodetect arduino
+        arduino_port = arduino_find();
+        printf("Using Arduino: %s\n",arduino_port);
+    }
+
+    //parse operand
+    if (strcmp(argv[optind], "auth")==0){
+        auth(prints_path, arduino_port);
+    }else if (strcmp(argv[optind], "enroll")==0){
+        enrollFinger(prints_path);
+    }else if (strcmp(argv[optind], "unlock")==0){
+        testUnlock(arduino_port);
+    }else if (strcmp(argv[optind], "blink")==0){
+        testBlink(arduino_port);
     }else{
+        fprintf(stderr,"Unknown operand %s\n\n",argv[optind]);
         printUsage(argv[0]);
     }
+
     return 0;
 }
 

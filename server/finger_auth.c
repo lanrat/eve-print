@@ -115,7 +115,7 @@ struct fp_print_data * load_print_from_file(const char * path)
 {
     FILE * fh;
     size_t fSize;
-    static unsigned char buffer[FILE_BUFFER_SIZE];
+    static unsigned char buffer[PRINT_FILE_BUFFER_SIZE];
     
     fh = fopen(path,"rb");
     if (!fh) {
@@ -124,9 +124,9 @@ struct fp_print_data * load_print_from_file(const char * path)
     }
 
     //clear buffer
-    memset(&buffer,0,FILE_BUFFER_SIZE);
+    memset(&buffer,0,PRINT_FILE_BUFFER_SIZE);
 
-    fSize = fread(&buffer,1,FILE_BUFFER_SIZE,fh);
+    fSize = fread(&buffer,1,PRINT_FILE_BUFFER_SIZE,fh);
     fclose(fh);
 
     if (fSize < 1){
@@ -138,7 +138,7 @@ struct fp_print_data * load_print_from_file(const char * path)
 }
 
 
-void loadPrints(struct user_prints * users)
+void loadPrints(char *path, struct user_prints * users)
 {
     DIR * d;
     struct dirent *dir;
@@ -152,20 +152,20 @@ void loadPrints(struct user_prints * users)
     users->prints = NULL;
     users->length = 0;
 
-    d = opendir(PATH);
+    d = opendir(path);
     if (d) {
         while ((dir = readdir(d)) != NULL)
         {
-            fLen = strnlen(dir->d_name,NAME_SIZE+3);
+            fLen = strnlen(dir->d_name,PRINT_NAME_SIZE+3);
             if ( fLen < 4) {
                 continue;
             }
             //test extension
-            if ( strncmp( &(dir->d_name[fLen-2]), EXT,2)) {
+            if ( strncmp( &(dir->d_name[fLen-2]), PRINT_EXT,2)) {
                 continue;
             }
             //read file
-            (void)snprintf(filepath, BUFSIZ, "%s/%s", PATH, dir->d_name);
+            (void)snprintf(filepath, BUFSIZ, "%s/%s", path, dir->d_name);
             print = load_print_from_file(filepath);
 
             if (print == NULL) {
@@ -180,7 +180,7 @@ void loadPrints(struct user_prints * users)
             users->prints = realloc(prints_temp,(users->length+1)*sizeof(struct fp_print_data *));
 
             //move name
-            users->names[users->length] = malloc(NAME_SIZE*sizeof(char));
+            users->names[users->length] = malloc(PRINT_NAME_SIZE*sizeof(char));
             strncpy(users->names[users->length],dir->d_name,fLen-3);
             users->names[users->length][fLen-3] = '\0'; //ensure null terminated string
 
