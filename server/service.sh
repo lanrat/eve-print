@@ -11,9 +11,9 @@
 
 #DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-DIR="/home/eve-lock/"
+DIR="/home/eve-lock/lock"
 
-SCRIPT="$DIR/eve-print/server/auth -p /dev/serial/by-id/*Arduino*"
+SCRIPT="$DIR/eve-print/server/auth -f $DIR/prints auth"
 RUNAS=eve-lock #must be a member of dialout and plugdev
 
 PIDFILE=$DIR/eve-lock.pid
