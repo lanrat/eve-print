@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 if [[ $EUID -ne 0 ]]; then
-  echo "You must be a root user" 2>&1
+  echo "You must be a root user, try sudo $0" 2>&1
   exit 1
 fi
 
