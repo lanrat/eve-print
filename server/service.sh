@@ -18,6 +18,7 @@ RUNAS=eve-lock #must be a member of dialout and plugdev
 
 PIDFILE=$DIR/eve-lock.pid
 LOGFILE=$DIR/eve-lock.log
+ERRFILE=$DIR/eve-lock.err
 
 status() {
   if [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE); then
@@ -35,7 +36,7 @@ start() {
     return 1
   fi
   echo 'Starting service…' >&2
-  local CMD="$SCRIPT &>> \"$LOGFILE\" & echo \$!"
+  local CMD="$SCRIPT >> \"$LOGFILE\" 2>> \"$ERRFILE\" & echo \$!"
   su -c "$CMD" $RUNAS > "$PIDFILE"
   echo 'Service started' >&2
 }
@@ -57,7 +58,7 @@ uninstall() {
   if [ "$SURE" = "yes" ]; then
     stop
     rm -f "$PIDFILE"
-    echo "Notice: log file is not be removed: '$LOGFILE'" >&2
+    echo "Notice: log files is not be removed: '$LOGFILE' '$ERRFILE'" >&2
     update-rc.d -f <NAME> remove
     rm -fv "$0"
   fi
