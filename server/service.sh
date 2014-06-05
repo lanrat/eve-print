@@ -13,7 +13,7 @@
 
 DIR="/home/eve-lock/lock"
 
-SCRIPT="$DIR/auth -f $DIR/prints auth"
+SCRIPT="$DIR/auth -f $DIR/prints auth -c \"espeak Access Granted\""
 RUNAS=eve-lock #must be a member of dialout and plugdev
 
 PIDFILE=$DIR/eve-lock.pid
