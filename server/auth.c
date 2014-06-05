@@ -11,6 +11,7 @@
 FILE *logstream;
 struct fp_dev* dev;
 struct user_prints users;
+char * valid_command;
 
 void enrollFinger(char* prints_path)
 {
@@ -112,6 +113,14 @@ void youShallNotPass()
     arduino_blink();
 }
 
+void runCommand(char * command)
+{
+    FILE *fp;
+    fp = popen(command, "r");
+    pclose(fp);
+}
+
+
 void auth_exit()
 {
     freePrints(&users);
@@ -180,6 +189,9 @@ void auth(char* prints_path, char* arduino_port)
         if (result > -1){
             fprintf(logstream,"[%s] Valid Print: %s\n",tBuffer,users.names[result]);
             youShallPass();
+            if (valid_command != NULL) {
+                runCommand(valid_command);
+            }
         }else{
             fprintf(logstream,"[%s] Invalid Print\n",tBuffer);
             youShallNotPass();
@@ -220,6 +232,7 @@ void printUsage(char* me)
     printf("\t-h\tDisplay this message\n");
     printf("\t-f\tprints_folder\tDefault: %s\n",PRINT_DEFAULT_PATH);
     printf("\t-p\tarduino_port\tDefault: Automatic\n");
+    printf("\t-c\tCommand to run on valid auth (name is arg1)\n");
 }
 
 
@@ -232,7 +245,7 @@ int main(int argc, char** argv)
     char *prints_path = PRINT_DEFAULT_PATH;
 
     //parse args
-    while ((c = getopt(argc, argv, "hf:p:")) != -1)
+    while ((c = getopt(argc, argv, "hf:p:c:")) != -1)
     {
         switch (c)
         {
@@ -241,6 +254,9 @@ int main(int argc, char** argv)
                 break;
             case 'f':
                 prints_path = optarg;
+                break;
+            case 'c':
+                valid_command = optarg;
                 break;
             case '?':
             case 'h':
