@@ -13,8 +13,8 @@
 
 DIR="/home/eve-lock/lock"
 
-SCRIPT="$DIR/auth -f $DIR/prints auth"
-RUNAS=eve-lock #must be a member of dialout and plugdev
+SCRIPT="$DIR/auth -f $DIR/prints auth -c \"sleep 1 && echo 'Access Granted' | festival --tts\""
+RUNAS=eve-lock #must be a member of dialout and plugdev (and audio/video if using sound
 
 PIDFILE=$DIR/eve-lock.pid
 LOGFILE=$DIR/eve-lock.log
